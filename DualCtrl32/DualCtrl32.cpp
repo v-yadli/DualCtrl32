@@ -13,7 +13,8 @@ enum KeyboardEvent
     CTRL_UP,
     ALT_DOWN,
     ALT_UP,
-    OTHER_KEY,
+    OTHER_KEY_UP,
+    OTHER_KEY_DOWN,
     MOUSE_MOVE,
     MOUSE_BUTTON,
     NONE, //Not interested
@@ -39,7 +40,7 @@ KeyboardEvent GetEvent(int nCode, WPARAM wParam, LPARAM lParam)
             {
             case VK_LCONTROL: return KeyboardEvent::CTRL_DOWN;
             case VK_LMENU: return KeyboardEvent::ALT_DOWN;
-            default: return KeyboardEvent::OTHER_KEY;
+            default: return KeyboardEvent::OTHER_KEY_DOWN;
             }
         case WM_KEYUP:
         case WM_SYSKEYUP:
@@ -47,7 +48,7 @@ KeyboardEvent GetEvent(int nCode, WPARAM wParam, LPARAM lParam)
             {
             case VK_LCONTROL: return KeyboardEvent::CTRL_UP;
             case VK_LMENU: return KeyboardEvent::ALT_UP;
-            default: return KeyboardEvent::OTHER_KEY;
+            default: return KeyboardEvent::OTHER_KEY_UP;
             }
         case WM_MOUSEMOVE:
             return KeyboardEvent::MOUSE_MOVE;
@@ -145,7 +146,7 @@ LRESULT CALLBACK DualCtrl32(int nCode, WPARAM wParam, LPARAM lParam)
         }
         /* FALLTHROUGH */
     case KeyboardEvent::MOUSE_MOVE:
-    case KeyboardEvent::OTHER_KEY:
+    case KeyboardEvent::OTHER_KEY_DOWN:
         if (g_ctrl_down)
         {
             //  Flush the cached ctrl-down event
@@ -158,6 +159,7 @@ LRESULT CALLBACK DualCtrl32(int nCode, WPARAM wParam, LPARAM lParam)
         }
         intercept = FALSE;
         break;
+    case KeyboardEvent::OTHER_KEY_UP:
     case KeyboardEvent::NONE:
         intercept = FALSE;
         break;
