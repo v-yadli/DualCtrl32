@@ -5,7 +5,7 @@
 #include "Strsafe.h"
 
 #if _DEBUG
-#define debug(x) do{printf(x);}while(false)
+#define debug(...) do{printf(__VA_ARGS__);}while(false)
 #else
 #define debug(x) do{}while(false)
 #endif
@@ -28,6 +28,7 @@ enum KeyboardEvent
 #define DC32_CONFIG_FILENAME     "\\DualCtrl32.ini"
 #define DC32_CTRLFLUSH_TIMEOUT   (10086)
 #define DC32_PATHMAX             (1024)
+#define DC32_WNDTEXTLEN          (1024)
 
 //============ Configuration ============
 
@@ -35,11 +36,14 @@ enum KeyboardEvent
 #define CONFIG_CTRLFLUSH_MOUSE   "MouseTrigger"
 #define CONFIG_CTRLFLUSH_KEY     "KeyTrigger"
 #define CONFIG_ALTDRAG_FIX       "AltDragFix"
+#define CONFIG_BLACKLIST         "Blacklist"
 
 UINT          g_ctrlflush_timeout = 0;     // 0: Disable; >0: force flush CTRL-DOWN event after timeout
 BOOL          g_ctrlflush_mouse   = TRUE;  // FALSE: do not flush CTRL-DOWN event on mouse movement
 BOOL          g_ctrlflush_key     = TRUE;  // FALSE: do not flush CTRL-DOWN event on key strokes
 BOOL          g_altdrag_fix       = TRUE;  // FALSE: Disable AltDrag fix.
+LPCSTR*       g_blacklist         = NULL;  // NULL: No blacklist.
+CHAR          g_wndtext[DC32_WNDTEXTLEN];  // Records window text during blacklist examination.
 
 //============ State registers ============
 
@@ -96,6 +100,54 @@ BOOL ReadBool(LPCSTR key)
            MATCH("Enabled") || MATCH("ENABLED");
 }
 
+LPCSTR* StringSplit(LPCSTR str, CHAR split)
+{
+    LPCSTR ptr = str;
+    SIZE_T cnt = 1;
+    CHAR   chr;
+
+    while ( (chr = *ptr++) != 0) 
+    {
+        if (chr == split) { ++cnt; }
+    }
+
+    ptr         = str;
+    LPCSTR* arr = (LPCSTR*)malloc(sizeof(LPCSTR)*(cnt+1));
+    SIZE_T  idx = 0;
+    SIZE_T  len = 0;
+
+    do
+    {
+        chr = *ptr++;
+        if (chr == split || chr == 0)
+        {
+            len            = ptr - str;
+            SIZE_T strsize = sizeof(CHAR) * len + 1;
+            arr[idx]       = (LPCSTR)malloc(strsize);
+            strncpy_s((char*)arr[idx], strsize, str, len - 1);
+            str = ptr;
+
+            ++idx;
+        }
+    } while (chr != 0);
+
+    arr[idx] = NULL;
+
+    return arr;
+}
+
+BOOL MatchAny(LPCSTR* collection, LPCSTR str)
+{
+    while (*collection != NULL)
+    {
+        
+        if (strstr(*collection, str) != NULL) return TRUE;
+        ++collection;
+    }
+
+    return FALSE;
+}
+
 INT ReadConfigEntry(LPVOID o, LPCSTR section, LPCSTR key, LPCSTR value)
 {
     UNREFERENCED_PARAMETER(o);
@@ -106,7 +158,7 @@ INT ReadConfigEntry(LPVOID o, LPCSTR section, LPCSTR key, LPCSTR value)
     if (MATCH(CONFIG_CTRLFLUSH_KEY)) { g_ctrlflush_key = ReadBool(value); }
     if (MATCH(CONFIG_CTRLFLUSH_MOUSE)) { g_ctrlflush_mouse = ReadBool(value); }
     if (MATCH(CONFIG_CTRLFLUSH_TIMEOUT)) { g_ctrlflush_timeout = atoi(value); }
-    if (MATCH(CONFIG_ALTDRAG_FIX)) { g_altdrag_fix = ReadBool(value); }
+    if (MATCH(CONFIG_BLACKLIST)) { g_blacklist = StringSplit(value, ','); }
 
     return 1;
 }
@@ -168,6 +220,23 @@ LRESULT CALLBACK DualCtrl32(int nCode, WPARAM wParam, LPARAM lParam)
 {
     KeyboardEvent event     = GetEvent(nCode, wParam, lParam);
     BOOL          intercept = FALSE;
+
+    if (g_blacklist != NULL)
+    {
+        HWND active_wnd = GetForegroundWindow();
+        if (active_wnd != NULL)
+        {        
+            if (GetClassNameA(active_wnd, g_wndtext, DC32_WNDTEXTLEN))
+            {
+                //debug("Active window class: "); debug(g_wndtext); debug("\n");
+                if (MatchAny(g_blacklist, g_wndtext))
+                {
+                    //debug("Blacklist window active, bypass DC32.");
+                    return CallNextHookEx(NULL, nCode, wParam, lParam);
+                }
+            }
+        }
+    }
 
     if (g_ctrl_thru)
     {
@@ -314,13 +383,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
     freopen_s(&fp, "CONOUT$", "w", stdout);
 #endif
 
+    LoadConfig();
+    SetupUI(hInstance);
 
     // Install the low-level keyboard & mouse hooks
     HHOOK hhkLLKeyboard = SetWindowsHookEx(WH_KEYBOARD_LL, DualCtrl32, 0, 0);
     HHOOK hhkLLMouse    = SetWindowsHookEx(WH_MOUSE_LL, DualCtrl32, 0, 0);
-
-    LoadConfig();
-    SetupUI(hInstance);
 
     MSG msg;
 
