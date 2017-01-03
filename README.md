@@ -14,3 +14,4 @@ Place DualCtrl32.ini beside the executable.
 - `MouseTrigger=FALSE` disables mouse event flush trigger.
 - `TimerTrigger=100` sets a timeout flush trigger after LCTRL-DOWN, recommend use with disabled key/mouse trigger.
 - `AltDragFix=FALSE` disables AltDrag fix.
+- `Blacklist=WNDCLASS_1,WNDCLASS_2,...` specifies a blacklist of window class names. If the foreground window class name is a substring of a blacklist entry, DualCtrl32 will be bypassed.
