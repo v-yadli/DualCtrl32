@@ -15,3 +15,5 @@ Place DualCtrl32.ini beside the executable.
 - `TimerTrigger=100` sets a timeout flush trigger after LCTRL-DOWN, recommend use with disabled key/mouse trigger.
 - `AltDragFix=FALSE` disables AltDrag fix.
 - `Blacklist=WNDCLASS_1,WNDCLASS_2,...` specifies a blacklist of window class names. If the foreground window class name is a substring of a blacklist entry, DualCtrl32 will be bypassed.
+  - Useful to bypass windows that register low level keyboard/mouse hooks and thus would interfere with DC32. For example:
+  - `Blacklist=LyncConversationWindowClass,CommunicatorMainWindowClass,TscShellContainerClass` would bypass Skype for Business and mstsc remote desktop.
